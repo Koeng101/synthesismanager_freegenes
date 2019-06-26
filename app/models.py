@@ -96,6 +96,16 @@ class Files(db.Model):
 ### Job board ###
 #################
 
+geneids_quotes = db.Table('geneids_quotes',
+    db.Column('geneids_uuid', UUID(as_uuid=True), db.ForeignKey('geneids.uuid'), primary_key=True),
+    db.Column('quotes_uuid', UUID(as_uuid=True), db.ForeignKey('quotes.uuid'), primary_key=True, nullable=True),
+)
+geneids_platemaps = db.Table('geneids_platemaps',
+    db.Column('geneids_uuid', UUID(as_uuid=True), db.ForeignKey('geneids.uuid'), primary_key=True),
+    db.Column('platemaps_uuid', UUID(as_uuid=True), db.ForeignKey('platemaps.uuid'), primary_key=True, nullable=True),
+)
+
+
 order_schema = {
         "uuid": uuid_schema,
         "name": generic_string,
@@ -107,18 +117,20 @@ class Order(db.Model):
     validator = schema_generator(order_schema,order_required)
     put_validator = schema_generator(order_schema,[])
 
-
     __tablename__ = 'orders'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
-    pass
+    name = db.Column(db.String)
+    description = db.Column(db.String)
+    status = db.Column(db.String)
+
 
 geneid_schema = {
         "uuid": uuid_schema,
         "geneid": generic_string,
-        "status": generic_string,
+        "status": generic_string, # Don't know all possible statuses yet
         "order_uuid": uuid_schema
         }
 geneid_required = ['geneid','order_uuid']
@@ -131,7 +143,10 @@ class GeneID(db.Model):
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
-    pass
+    geneid = db.Column(db.String)
+    status = db.Column(db.String)
+    order_uuid = db.Column(UUID, db.ForeignKey('orders.uuid'), nullable=False)
+
 
 quote_schema = {
         "uuid": uuid_schema,
@@ -153,7 +168,14 @@ class Quote(db.Model):
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
-    pass
+    vendor = db.Column(db.String)
+    price = db.Column(db.Float)
+    order_uuid = db.Column(UUID, db.ForeignKey('orders.uuid'), nullable=False)
+    file_uuid = db.Column(UUID, db.ForeignKey('files.uuid'), nullable=False)
+    quote_id = db.Column(db.String)
+    status = db.Column(db.String)
+    geneids = db.relationship('GeneID', secondary=geneids_quotes, lazy='subquery',backref=db.backref('quotes', lazy=True))
+
 
 invoice_schema = {
         "uuid": uuid_schema,
@@ -173,7 +195,11 @@ class Invoice(db.Model):
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
-    pass
+    quote_uuid = db.Column(UUID, db.ForeignKey('quotes.uuid'), nullable=False)
+    order_uuid = db.Column(UUID, db.ForeignKey('orders.uuid'), nullable=False)
+    file_uuid = db.Column(UUID, db.ForeignKey('files.uuid'), nullable=False)
+    invoice_id = db.Column(db.String)
+    price = db.Column(db.Integer)
 
 platemap_schema = {
         "uuid": uuid_schema,
@@ -191,7 +217,8 @@ class PlateMap(db.Model):
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
-    pass
-
+    file_uuid = db.Column(UUID, db.ForeignKey('files.uuid'), nullable=False)
+    invoices_uuid = db.Column(UUID, db.ForeignKey('invoices.uuid'), nullable=False)
+    geneids = db.relationship('GeneID', secondary=geneids_platemaps, lazy='subquery',backref=db.backref('platemaps', lazy=True))
 
 
