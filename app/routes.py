@@ -54,4 +54,10 @@ class DownloadFile(Resource):
 
 ###
 ns_order = create_crud('order','Orders',Order)
+ns_geneids = create_crud('geneid','GeneIDs',GeneID)
+ns_quote = create_crud('quote','Quotes',Quote)
+ns_invoice = create_crud('invoice','Invoices',Invoice)
+ns_platemap = create_crud('platemap','PlateMaps',PlateMap)
+
+ns = [ns_file,ns_order,ns_geneids,ns_quote,ns_invoice,ns_platemap]
 

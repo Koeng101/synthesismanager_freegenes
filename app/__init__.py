@@ -25,7 +25,7 @@ from .config import *
 from .models import db
 
 from .CRUD import ns_token
-from .routes import ns_order
+from .routes import ns 
 # initialization
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = URL
@@ -48,7 +48,6 @@ api = Api(app, version='1.0', title=API_TITLE,
 migrate = Migrate(app, db)
 
 
-namespaces = [ns_token, ns_order]
-for ns in namespaces:
-    api.add_namespace(ns)
+for n in ns:
+    api.add_namespace(n)
 
