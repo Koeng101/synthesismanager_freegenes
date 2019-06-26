@@ -55,6 +55,9 @@ def schema_generator(properties,required,additionalProperties=False):
 
 def base_dict(cls):
     return {"uuid": cls.uuid, "time_created": cls.time_created.isoformat(), "time_updated": cls.time_updated.isoformat()}
+
+def obj_uuids(obj_array):
+    return [obj.uuid for obj in obj_array]
 ###
 ###
 ###
@@ -126,6 +129,15 @@ class Order(db.Model):
     description = db.Column(db.String)
     status = db.Column(db.String)
 
+    geneids = db.relationship('GeneID',backref='order')
+    quotes = db.relationship('Quote',backref='quote')
+
+    def toJSON(self,full=None):
+        dictionary = {**base_dict(self),**{'name':self.name,'description':self.description,'status':self.status}}
+        if full=='full':
+            dictionary = {**dictionary,**{'geneids':obj_uuids(geneids), 'quotes':obj_uuids(quotes)}}
+        return dictionary
+    
 
 geneid_schema = {
         "uuid": uuid_schema,
@@ -153,7 +165,7 @@ quote_schema = {
         "vendor": {"type": "string", "enum": ["Twist","Genscript"]},
         "price": generic_num,
         "order_uuid": uuid_schema,
-        "file_uuid": file_uuid,
+        "file_uuid": uuid_schema,
         "quote_id": generic_string,
         "status": {"type": "string", "enum": ["Pending","Accepted","Rejected"]},
         "geneids": {"type": "array", "items": generic_string},
@@ -162,6 +174,7 @@ quote_required = ['vendor','price','order_uuid','file_uuid','quote_id','status',
 class Quote(db.Model):
     validator = schema_generator(quote_schema,quote_required)
     put_validator = schema_generator(quote_schema,[])
+    many_to_many = [{'geneids': GeneID}]
 
     __tablename__ = 'quotes'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)
@@ -180,12 +193,11 @@ class Quote(db.Model):
 invoice_schema = {
         "uuid": uuid_schema,
         "quote_uuid": uuid_schema,
-        "order_uuid": uuid_schema,
         "file_uuid": uuid_schema,
         "invoice_id": generic_string,
         "price": generic_num
         }
-invoice_required = ['quote_uuid','order_uuid','file_uuid','invoice_id','price']
+invoice_required = ['quote_uuid','file_uuid','invoice_id','price']
 class Invoice(db.Model):
     validator = schema_generator(invoice_schema,invoice_required)
     put_validator = schema_generator(invoice_schema,[])
@@ -196,7 +208,6 @@ class Invoice(db.Model):
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
     quote_uuid = db.Column(UUID, db.ForeignKey('quotes.uuid'), nullable=False)
-    order_uuid = db.Column(UUID, db.ForeignKey('orders.uuid'), nullable=False)
     file_uuid = db.Column(UUID, db.ForeignKey('files.uuid'), nullable=False)
     invoice_id = db.Column(db.String)
     price = db.Column(db.Integer)
@@ -211,6 +222,7 @@ platemap_required = ['file_uuid','invoice_uuid','geneids']
 class PlateMap(db.Model):
     validator = schema_generator(platemap_schema,platemap_required)
     put_validator = schema_generator(platemap_schema,[])
+    many_to_many = [{'geneids': GeneID}]
 
     __tablename__ = 'platemaps'
     uuid = db.Column(UUID(as_uuid=True), unique=True, nullable=False,default=sqlalchemy.text("uuid_generate_v4()"), primary_key=True)

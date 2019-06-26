@@ -2,6 +2,9 @@ import os
 import jwt
 from functools import wraps
 from flask import make_response, jsonify
+from flask_restplus import Api, Resource, fields, Namespace
+from flask import Flask, abort, request, jsonify, g, url_for, redirect
+
 PUBLIC_KEY = os.environ['PUBLIC_KEY']
 def requires_auth(roles): # Remove ability to send token as parameter in request
     def requires_auth_decorator(f):
@@ -9,12 +12,13 @@ def requires_auth(roles): # Remove ability to send token as parameter in request
         def decorated(*args, **kwargs):
             def decode_token(token):
                 return jwt.decode(token.encode("utf-8"), PUBLIC_KEY, algorithms='RS256')
-            try:
-                decoded = decode_token(str(request.headers['Token']))
-            except Exception as e:
-                 return make_response(jsonify({'message': str(e)}), 401)
-            if set(roles).isdisjoint(decoded['roles']):
-                return make_response(jsonify({'message': 'Not authorized for this endpoint'}),401)
+            if roles != []:
+                try:
+                    decoded = decode_token(str(request.headers['Token']))
+                except Exception as e:
+                     return make_response(jsonify({'message': str(e)}), 401)
+                if set(roles).isdisjoint(decoded['roles']):
+                    return make_response(jsonify({'message': 'Not authorized for this endpoint'}),401)
             return f(*args, **kwargs)
         return decorated
     return requires_auth_decorator
@@ -44,8 +48,9 @@ def request_to_class(dbclass,json_request): # Make classmethod
                 dbclass.tags.append(tag)
         elif k in dbclass.many_to_many and v != []:
             cls = dbclass.many_to_many[k]
-            getattr(dbclass,k) = []
-            [getattr(dbclass,k).append(cls.query.filter_by(uuid=uuid).first()) for uuid in list(set(v))]
+            obj = getattr(dbclass,k)
+            obj = []
+            [obj.append(cls.query.filter_by(uuid=uuid).first()) for uuid in list(set(v))]
         else:
             setattr(dbclass,k,v)
     return dbclass
@@ -85,7 +90,7 @@ def crud_put(cls,uuid,post,database):
     return jsonify(obj.toJSON())
 
 class CRUD():
-    def __init__(self, namespace, cls, model, name, view_auth=[], edit_auth=[], delete_constraints={}, security='token',validate_json=False, custom_post=False, custom_put=False ):
+    def __init__(self, namespace, cls, model, name, view_auth=[], edit_auth=['admin'], delete_constraints={}, security='token',validate_json=False, custom_post=False, custom_put=False ):
         self.ns = namespace
         self.cls = cls
         self.model = model
@@ -113,8 +118,8 @@ class CRUD():
                         else:
                             return make_response(jsonify({'message': 'UUID taken'}),501)
                     return crud_post(cls,request.get_json(),db)
-        else:
-            print('Custom post and list for {}'.format(name))
+            else:
+                print('Custom post and list for {}'.format(name))
 
         @self.ns.route('/<uuid>')
         class GetDelPutRoute(Resource):
@@ -157,4 +162,9 @@ class CRUD():
                 def get(self):
                     return make_response(jsonify(cls.validator),200)
 
+def create_crud(name,description,cls,view_auth=[],edit_auth=['admin'],delete_constraints={},security='token',validate_json=False,custom_post=False,custom_put=False):
+    ns_obj = Namespace(name,description=description)
+    obj_model = ns_obj.schema_model(name,cls.validator)
+    CRUD(ns_obj,cls,obj_model,name,view_auth=view_auth,edit_auth=edit_auth,delete_constraints=delete_constraints,security=security,validate_json=validate_json,custom_post=custom_post,custom_put=custom_put)
+    return ns_obj
 
