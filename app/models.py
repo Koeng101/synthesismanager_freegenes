@@ -158,7 +158,12 @@ class GeneID(db.Model):
     geneid = db.Column(db.String)
     status = db.Column(db.String)
     order_uuid = db.Column(UUID, db.ForeignKey('orders.uuid'), nullable=False)
-
+    
+    def toJSON(self,full=None):
+        dictionary = {**base_dict(self),**{'geneid':self.geneid,'status':self.status,'order_uuid':self.order_uuid}}
+        if full=='full':
+            dictionary = {**dictionary,**{'quotes':obj_uuids(self.quotes), 'platemaps':obj_uuids(self.platemaps)}}
+        return dictionary
 
 quote_schema = {
         "uuid": uuid_schema,
@@ -188,6 +193,13 @@ class Quote(db.Model):
     quote_id = db.Column(db.String)
     status = db.Column(db.String)
     geneids = db.relationship('GeneID', secondary=geneids_quotes, lazy='subquery',backref=db.backref('quotes', lazy=True))
+    invoices = db.relationship('Invoice',backref='quote')
+    
+    def toJSON(self,full=None):
+        dictionary = {**base_dict(self),**{'vendor':self.vendor,'price':self.price,'order_uuid':self.order_uuid,'file_uuid':self.file_uuid,'quote_id':self.quote_id,'status':self.status}}
+        if full=='full':
+            dictionary = {**dictionary,**{'geneids':obj_uuids(self.geneids), 'invoices':obj_uuids(self.invoices)}}
+        return dictionary
 
 
 invoice_schema = {
@@ -211,6 +223,13 @@ class Invoice(db.Model):
     file_uuid = db.Column(UUID, db.ForeignKey('files.uuid'), nullable=False)
     invoice_id = db.Column(db.String)
     price = db.Column(db.Integer)
+    platemaps = db.relationship('PlateMap',backref='invoice')
+
+    def toJSON(self,full=None):
+        dictionary={**base_dict(self),**{'quote_uuid':self.quote_uuid,'file_uuid':self.file_uuid,'invoice_id':self.invoice_id,'price':self.price}}
+        if full=='full':
+            dictionary = {**dictionary,**{'platemaps':obj_uuids(self.platemaps)}}
+        return dictionary
 
 platemap_schema = {
         "uuid": uuid_schema,
@@ -230,7 +249,13 @@ class PlateMap(db.Model):
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
     file_uuid = db.Column(UUID, db.ForeignKey('files.uuid'), nullable=False)
-    invoices_uuid = db.Column(UUID, db.ForeignKey('invoices.uuid'), nullable=False)
+    invoice_uuid = db.Column(UUID, db.ForeignKey('invoices.uuid'), nullable=False)
     geneids = db.relationship('GeneID', secondary=geneids_platemaps, lazy='subquery',backref=db.backref('platemaps', lazy=True))
+
+    def toJSON(self,full=None):
+        dictionary={**base_dict(self),**{'file_uuid':self.file_uuid,'invoice_uuid':self.invoice_uuid}}
+        if full=='full':
+            dictionary={**dictionary,**{'geneids':obj_uuids(self.geneids)}}
+        return dictionary
 
 
